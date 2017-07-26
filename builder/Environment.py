@@ -2,6 +2,7 @@ import os
 import sys
 import platform
 import subprocess
+from .packages import PACKAGE_NAME_MAPPERS
 from target import TargetInfo, target_platforms
 
 
@@ -21,11 +22,10 @@ class Environment:
         self.distname = self.detect_distname()
         self.ninja_command = self.detect_ninja()
         self.meson_command = self.detect_meson()
+        self.target = self.detect_target(self.distname, options.target_platform)
 
-        # TODO: change to self.target ?
-        self.platform_info = self.detect_target(options.target_platform)
-        self.cross_config = self.platform_info.get_cross_config(self.distname)
-        # self.setup_toolchains()
+        # self.cross_config = self.target.get_cross_config(self.distname)
+        # self.toolchains = [Toolchain.all_toolchains[name](self) for name in self.target.toolchains]
         # self.options = options
         # self.libprefix = options.libprefix or self._detect_libdir()
         # self.targetsDict = targetsDict
@@ -80,20 +80,72 @@ class Environment:
         else:
             sys.exit("ERROR: meson command not found")
 
-    def detect_target(self, target_platform: str) -> TargetInfo:
-        target = target_platforms[target_platform]
-        if self.distname not in target.compatible_hosts:
+    @staticmethod
+    def detect_target(distname: str, target_name: str) -> TargetInfo:
+        target = target_platforms[target_name]
+        if distname not in target.compatible_hosts:
             sys.exit(('ERROR: The target {} cannot be build on host {}.\n'
                       'Select another target platform, or change your host system.')
-                     .format(target_platform, self.distname))
+                     .format(target_name, distname))
         else:
             return target
 
-    def setup_toolchains(self):
-        toolchain_names = self.platform_info.toolchains
-        self.toolchains = [Toolchain.all_toolchains[toolchain_name](self)
-                           for toolchain_name in toolchain_names]
+    def install_packages(self):
+        autoskip_file = os.path.join(self.build_dir, ".install_packages_ok")
+        if self.distname in ('fedora', 'redhat', 'centos'):
+            package_installer = 'sudo dnf install {}'
+            package_checker = 'rpm -q --quiet {}'
+        elif self.distname in ('debian', 'Ubuntu'):
+            package_installer = 'sudo apt-get install {}'
+            package_checker = 'LANG=C dpkg -s {} 2>&1 | grep Status | grep "ok installed" 1>/dev/null 2>&1'
+        elif self.distname == 'Darwin':
+            package_installer = 'brew install {}'
+            package_checker = 'brew list -1 | grep -q {}'
 
+        mapper_name = "{host}_{target}".format(host=self.distname, target=self.target)
+        try:
+            package_name_mapper = PACKAGE_NAME_MAPPERS[mapper_name]
+        except KeyError:
+            print("SKIP : We don't know which packages we must install to compile "
+                  "a {target} {build_type} version on a {host} host.".
+                  format(target=self.target, build_type=self.target.build_type, host=self.distname))
+            return
+
+        packages_list = package_name_mapper.get('COMMON', [])
+        for dep in self.targetsDict.values():
+            packages = package_name_mapper.get(dep.name)
+            if packages:
+                packages_list += packages
+                dep.skip = True
+        # for dep in self.targetsDict.values():
+        #     packages = getattr(dep, 'extra_packages', [])
+        #     for package in packages:
+        #         packages_list += package_name_mapper.get(package, [])
+        # if os.path.exists(autoskip_file):
+        #     print("SKIP")
+        #     return
+        #
+        # packages_to_install = []
+        # for package in packages_list:
+        #     print(" - {} : ".format(package), end="")
+        #     command = package_checker.format(package)
+        #     try:
+        #         subprocess.check_call(command, shell=True)
+        #     except subprocess.CalledProcessError:
+        #         print("NEEDED")
+        #         packages_to_install.append(package)
+        #     else:
+        #         print("SKIP")
+        #
+        # if packages_to_install:
+        #     command = package_installer.format(" ".join(packages_to_install))
+        #     print(command)
+        #     subprocess.check_call(command, shell=True)
+        # else:
+        #     print("SKIP, No package to install.")
+        #
+        # with open(autoskip_file, 'w'):
+        #     pass
 
     # def clean_intermediate_directories(self):
     #     for subdir in os.listdir(self.build_dir):
@@ -267,61 +319,3 @@ class Environment:
     #     where = where or self.archive_dir
     #     download_remote(what, where, not self.options.no_cert_check)
     #
-    # def install_packages(self):
-    #     autoskip_file = pj(self.build_dir, ".install_packages_ok")
-    #     if self.distname in ('fedora', 'redhat', 'centos'):
-    #         package_installer = 'sudo dnf install {}'
-    #         package_checker = 'rpm -q --quiet {}'
-    #     elif self.distname in ('debian', 'Ubuntu'):
-    #         package_installer = 'sudo apt-get install {}'
-    #         package_checker = 'LANG=C dpkg -s {} 2>&1 | grep Status | grep "ok installed" 1>/dev/null 2>&1'
-    #     elif self.distname == 'Darwin':
-    #         package_installer = 'brew install {}'
-    #         package_checker = 'brew list -1 | grep -q {}'
-    #     mapper_name = "{host}_{target}".format(
-    #         host=self.distname,
-    #         target=self.platform_info)
-    #     try:
-    #         package_name_mapper = PACKAGE_NAME_MAPPERS[mapper_name]
-    #     except KeyError:
-    #         print("SKIP : We don't know which packages we must install to compile"
-    #               " a {target} {build_type} version on a {host} host.".format(
-    #                   target=self.platform_info,
-    #                   host=self.distname))
-    #         return
-    #
-    #     packages_list = package_name_mapper.get('COMMON', [])
-    #     for dep in self.targetsDict.values():
-    #         packages = package_name_mapper.get(dep.name)
-    #         if packages:
-    #             packages_list += packages
-    #             dep.skip = True
-    #     for dep in self.targetsDict.values():
-    #         packages = getattr(dep, 'extra_packages', [])
-    #         for package in packages:
-    #             packages_list += package_name_mapper.get(package, [])
-    #     if os.path.exists(autoskip_file):
-    #         print("SKIP")
-    #         return
-    #
-    #     packages_to_install = []
-    #     for package in packages_list:
-    #         print(" - {} : ".format(package), end="")
-    #         command = package_checker.format(package)
-    #         try:
-    #             subprocess.check_call(command, shell=True)
-    #         except subprocess.CalledProcessError:
-    #             print("NEEDED")
-    #             packages_to_install.append(package)
-    #         else:
-    #             print("SKIP")
-    #
-    #     if packages_to_install:
-    #         command = package_installer.format(" ".join(packages_to_install))
-    #         print(command)
-    #         subprocess.check_call(command, shell=True)
-    #     else:
-    #         print("SKIP, No package to install.")
-    #
-    #     with open(autoskip_file, 'w'):
-    #         pass

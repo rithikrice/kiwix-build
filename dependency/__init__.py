@@ -15,7 +15,7 @@ from dependency_utils import (
 from utils import Remotefile, pj, SkipCommand, copy_tree, add_execution_right
 
 # *************************************
-# Missing dependencies
+# Missing dependency
 # Is this ok to assume that those libs
 # exist in your "distri" (linux/mac) ?
 # If not, we need to compile them here

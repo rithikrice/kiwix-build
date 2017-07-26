@@ -15,9 +15,7 @@ g_print_progress = True
 REMOTE_PREFIX = 'http://download.kiwix.org/dev/'
 
 
-def setup_print_progress(print_progress):
-    global g_print_progress
-    g_print_progress = print_progress
+
 
 
 class Defaultdict(defaultdict):
@@ -117,12 +115,7 @@ def download_remote(what, where, check_certificate=True):
         raise StopBuild()
 
 
-class SkipCommand(Exception):
-    pass
 
-
-class StopBuild(Exception):
-    pass
 
 
 class Remotefile(namedtuple('Remotefile', ('name', 'sha256', 'url'))):
