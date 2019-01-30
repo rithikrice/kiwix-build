@@ -62,3 +62,6 @@ before_deploy:
 
 deploy_script:
   - cmd: '%MINGW64_RUN% "cd /c/projects/kiwix-build && appveyor/deploy.sh"'
+
+on_finish:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
