@@ -44,7 +44,7 @@ base_deps_versions = {
   'xapian-core' : '1.4.10',
   'mustache' : '3.2',
   'pugixml' : '1.2',
-  'libmicrohttpd' : '0.9.46',
+  'libmicrohttpd' : '0.9.63',
   'gumbo' : '0.10.1',
   'icu4c' : '58.2',
   'gradle' : '5.2',
