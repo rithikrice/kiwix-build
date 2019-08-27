@@ -46,10 +46,10 @@ def create_version(version):
     url = "https://api.bintray.com/packages/kiwix/kiwix/kiwixlib/versions"
     payload = {
         'name': version,
-        'desc': 'Release of kiwix-lib'
+        'desc': 'Release of kiwix-lib',
     }
     headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
     }
 
     r = requests.post(url, data=json.dumps(payload), headers=headers, auth=bintray_auth)
@@ -72,7 +72,7 @@ def upload_archive(version, filename, artefact):
     url_template = "https://api.bintray.com/content/kiwix/kiwix/kiwixlib/{version}/org/kiwix/kiwixlib/kiwixlib/{version}/{artefact}"
     parameters = {
         'publish': 1,
-        'override': 1
+        'override': 1,
     }
 
     # Upload the main artefact
